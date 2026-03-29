@@ -8,45 +8,55 @@ You can always default to git commands if you want- there is no lock-in here.
 
 ## How it works
 
-Save your work.
+### Push
 ```
-dot save "fix login bug"
+dot push
 ```
+~~# git add -A && git commit -m "2026-03-29 19:44 -- modified 2 files" && git push~~
 
-Push it to the remote.
+### Save
 ```
-dot push "shipped it"
+dot save
 ```
+~~# git add -A && git commit -m "2026-03-29 19:44 -- modified 2 files"~~
 
-Pull the latest changes.
+
+### Pull
 ```
 dot pull
 ```
+~~git pull --rebase~~
 
-Undo the last save.
+
+### Undo
 ```
 dot undo
 ```
 
-Switch branches.
-```
-dot switch -c new-feature
-```
+~~git revert HEAD --no-edit~~
 
-Fix the last save.
+
+### Fix the last save.
 ```
 dot amend "better message"
 ```
 
-Throw away uncommitted changes.
+~~git add -A && git commit --amend -m "better message"~~
+
+### Throw away uncommitted changes.
 ```
 dot discard
 ```
 
-Add a file to .gitignore.
+~~git checkout -- . && git clean -fd~~
+
+### Add a file to .gitignore.
 ```
 dot ignore .env
 ```
+~~echo ".env" >> .gitignore~~
+
+---
 
 Anything else goes straight to git.
 ```
