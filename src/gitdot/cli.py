@@ -62,6 +62,7 @@ def _register_commands() -> None:
     from gitdot.discard import discard
     from gitdot.push import push
     from gitdot.pull import pull
+    from gitdot.start import start
 
     main.add_command(save)
     main.add_command(undo)
@@ -71,6 +72,7 @@ def _register_commands() -> None:
     main.add_command(discard)
     main.add_command(push)
     main.add_command(pull)
+    main.add_command(start)
 
 
 _register_commands()
