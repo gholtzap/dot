@@ -1,0 +1,16 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+*.egg
+dist/
+build/
+
+# Editable install
+src/*.egg-info/
+
+# Testing
+.pytest_cache/
+
+# dot metadata
+/.dot/
