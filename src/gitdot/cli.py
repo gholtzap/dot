@@ -59,12 +59,16 @@ def _register_commands() -> None:
     from gitdot.undo import undo
     from gitdot.switch import switch
     from gitdot.ignore import ignore
+    from gitdot.amend import amend
+    from gitdot.discard import discard
 
     main.add_command(save)
     main.add_command(sync)
     main.add_command(undo)
     main.add_command(switch)
     main.add_command(ignore)
+    main.add_command(amend)
+    main.add_command(discard)
 
 
 _register_commands()

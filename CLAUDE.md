@@ -8,6 +8,8 @@ Make git feel obvious. If a new command requires explanation, it's too complex.
 
 ## Design principles
 
+Never write any comments unless absolutely necessary.
+
 - **New verbs, not new concepts.** `save` not `add + commit`. `sync` not `fetch + rebase + push`. Commands should map to what the user *wants to do*, not what git *needs to hear*.
 - **Opinionated defaults, escape hatches for power users.** Rebase over merge. Stage everything over selective staging. But never block someone from doing it the git way.
 - **Silent passthrough.** Any command dot doesn't own goes straight to git. No warnings, no banners, no "did you mean". The user should never feel trapped.
