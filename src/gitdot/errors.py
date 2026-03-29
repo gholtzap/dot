@@ -17,7 +17,7 @@ _PATTERNS: list[tuple[re.Pattern[str], str]] = [
     (
         re.compile(r"have diverged", re.IGNORECASE),
         "Your local branch and the remote have diverged (both have new commits). "
-        "Run 'dot sync' to reconcile them.",
+        "Run 'dot pull' to get the latest, then 'dot push' to send your changes.",
     ),
     (
         re.compile(r"Authentication failed", re.IGNORECASE),
@@ -50,7 +50,7 @@ _PATTERNS: list[tuple[re.Pattern[str], str]] = [
     ),
     (
         re.compile(r"has no upstream branch", re.IGNORECASE),
-        "This branch has not been pushed yet. Run 'dot sync' to push it for the first time.",
+        "This branch has not been pushed yet. Run 'dot push' to push it for the first time.",
     ),
     (
         re.compile(r"nothing to commit", re.IGNORECASE),
