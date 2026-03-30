@@ -8,6 +8,12 @@ You can always default to git commands if you want- there is no lock-in here.
 
 ## How it works
 
+### Start
+```
+dot start https://github.com/user/repo.git
+```
+~~git init && git remote add origin ... && git add -A && git commit -m "initial commit" && git branch -M main && git push -u origin main~~
+
 ### Push (upload your changes)
 ```
 dot push
