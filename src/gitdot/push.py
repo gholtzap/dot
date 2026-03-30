@@ -73,8 +73,41 @@ def push(args: tuple[str, ...]) -> None:
     click.echo(f"Pushing to {upstream}...")
     result = git.run(["push"])
     if not result.ok:
-        friendly = translate(result.stderr)
-        raise click.ClickException(friendly or result.stderr)
+        if "fetch first" in result.stderr or "non-fast-forward" in result.stderr:
+            click.echo("Remote has new changes. Pulling first...")
+            pull_result = git.run(["pull", "--rebase"])
+            if not pull_result.ok:
+                files = git.conflicted_files()
+                if files:
+                    click.echo()
+                    click.echo("Pull stopped because of conflicts in these files:")
+                    for f in files:
+                        click.echo(f"  {f}")
+                    click.echo()
+                    click.echo(
+                        "To resolve:\n"
+                        "  1. Open each file above\n"
+                        "  2. Look for the <<<< and >>>> markers\n"
+                        "  3. Choose which version to keep and remove the markers\n"
+                        "  4. Save the file\n"
+                        "  5. Run: git add <file>\n"
+                        "  6. Run: git rebase --continue\n"
+                        "  7. Run: dot push"
+                    )
+                    click.echo()
+                    click.echo("Or to abort: git rebase --abort")
+                    raise SystemExit(1)
+                friendly = translate(pull_result.stderr)
+                raise click.ClickException(friendly or pull_result.stderr)
+
+            click.echo(f"Pushing to {upstream}...")
+            retry = git.run(["push"])
+            if not retry.ok:
+                friendly = translate(retry.stderr)
+                raise click.ClickException(friendly or retry.stderr)
+        else:
+            friendly = translate(result.stderr)
+            raise click.ClickException(friendly or result.stderr)
     click.echo("Pushed.")
 
 
