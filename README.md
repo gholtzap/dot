@@ -8,7 +8,7 @@ You can always default to git commands if you want- there is no lock-in here.
 
 ## How it works
 
-### Push
+### Push (upload your changes)
 ```
 dot push
 ```
@@ -21,7 +21,7 @@ dot save
 ~~# git add -A && git commit -m "2026-03-29 19:44 -- modified 2 files"~~
 
 
-### Pull
+### Pull (retrieve changes from the source)
 ```
 dot pull
 ```
