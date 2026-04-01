@@ -2,12 +2,11 @@
 
 from __future__ import annotations
 
-from datetime import datetime
-
 import click
 
 from gitdot import git, dotdir
 from gitdot.errors import translate
+from gitdot.saving import save_changes
 
 
 @click.command()
@@ -32,25 +31,9 @@ def push(args: tuple[str, ...]) -> None:
 
     status = git.status_porcelain()
     if status or paths:
-        if paths:
-            git.run_or_fail(["add"] + paths)
-        else:
-            git.run_or_fail(["add", "-A"])
-
-        staged_result = git.run(["diff", "--cached", "--quiet"])
-        if not staged_result.ok:
-            if message is None:
-                message = _auto_message()
-            git.run_or_fail(["commit", "-m", message])
-
-            full_hash_result = git.run(["rev-parse", "HEAD"])
-            if full_hash_result.ok:
-                from gitdot.undo import push_entry
-                push_entry(full_hash_result.stdout, message)
-
-            result = git.run(["rev-parse", "--short", "HEAD"])
-            short_hash = result.stdout if result.ok else "?"
-            click.echo(f"Saved: {short_hash} {message}")
+        saved = save_changes(paths=paths or None, message=message)
+        if saved is not None:
+            click.echo(f"Saved: {saved.short_hash} {saved.message}")
 
     if not git.has_upstream():
         remote = _guess_remote()
@@ -121,16 +104,6 @@ def _parse_args(args: tuple[str, ...]) -> tuple[list[str], str | None]:
     if git.pathspec_has_changes(args_list[-1]):
         return args_list, None
     return args_list[:-1], args_list[-1]
-
-
-def _auto_message() -> str:
-    timestamp = datetime.now().strftime("%Y-%m-%d %H:%M")
-    summary = git.diff_stat_summary(staged=True)
-    if summary:
-        return f"{timestamp} -- {summary}"
-    return timestamp
-
-
 def _guess_remote() -> str:
     result = git.run(["remote"])
     if result.ok and result.stdout:

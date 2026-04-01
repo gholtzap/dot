@@ -56,3 +56,20 @@ def test_pull_no_upstream(runner, tmp_repo_with_commit):
     )
     assert result.exit_code != 0
     assert "no upstream" in result.output.lower()
+
+
+def test_pull_with_local_changes_creates_undo_entry(runner, tmp_repo_with_remote):
+    local_path, _ = tmp_repo_with_remote
+    (local_path / "local.txt").write_text("local\n")
+
+    result = invoke(runner, ["pull"])
+    assert result.exit_code == 0
+    assert "Saved:" in result.output
+
+    stack_file = local_path / ".dot" / "undo_stack.json"
+    assert stack_file.exists()
+
+    import json
+
+    data = json.loads(stack_file.read_text())
+    assert len(data["entries"]) == 1

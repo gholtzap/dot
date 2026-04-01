@@ -105,3 +105,19 @@ def test_push_deleted_file_path_is_not_treated_as_message(runner, tmp_repo_with_
         text=True,
     ).stdout.strip()
     assert subject != "old.txt"
+
+
+def test_push_with_changes_creates_undo_entry(runner, tmp_repo_with_remote):
+    local_path, _ = tmp_repo_with_remote
+    (local_path / "new.txt").write_text("hello\n")
+
+    result = invoke(runner, ["push", "shipped it"])
+    assert result.exit_code == 0
+
+    stack_file = local_path / ".dot" / "undo_stack.json"
+    assert stack_file.exists()
+
+    import json
+
+    data = json.loads(stack_file.read_text())
+    assert data["entries"][-1]["message"] == "shipped it"

@@ -6,6 +6,7 @@ import click
 
 from gitdot import git
 from gitdot.errors import translate
+from gitdot.saving import save_changes
 
 
 @click.command()
@@ -32,21 +33,9 @@ def pull() -> None:
     status = git.status_porcelain()
     if status:
         click.echo("Saving uncommitted changes before pulling...")
-        git.run_or_fail(["add", "-A"])
-        from datetime import datetime
-        timestamp = datetime.now().strftime("%Y-%m-%d %H:%M")
-        summary = git.diff_stat_summary(staged=True)
-        message = f"{timestamp} -- {summary}" if summary else timestamp
-        git.run_or_fail(["commit", "-m", message])
-
-        full_hash_result = git.run(["rev-parse", "HEAD"])
-        if full_hash_result.ok:
-            from gitdot.undo import push_entry
-            push_entry(full_hash_result.stdout, message)
-
-        result = git.run(["rev-parse", "--short", "HEAD"])
-        short_hash = result.stdout if result.ok else "?"
-        click.echo(f"Saved: {short_hash} {message}")
+        saved = save_changes()
+        if saved is not None:
+            click.echo(f"Saved: {saved.short_hash} {saved.message}")
 
     click.echo(f"Pulling from {upstream}...")
 

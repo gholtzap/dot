@@ -2,11 +2,10 @@
 
 from __future__ import annotations
 
-from datetime import datetime
-
 import click
 
 from gitdot import git, dotdir
+from gitdot.saving import save_changes
 
 
 @click.command()
@@ -30,37 +29,12 @@ def save(args: tuple[str, ...]) -> None:
         click.echo("There are no changes to save.")
         return
 
-    # Stage
-    if paths:
-        git.run_or_fail(["add"] + paths)
-    else:
-        git.run_or_fail(["add", "-A"])
-
-    # Check if anything is staged after adding
-    staged_result = git.run(["diff", "--cached", "--quiet"])
-    if staged_result.ok:
+    saved = save_changes(paths=paths or None, message=message)
+    if saved is None:
         click.echo("There are no changes to save.")
         return
 
-    # Generate message if not provided
-    if message is None:
-        message = _auto_message()
-
-    # Commit
-    git.run_or_fail(["commit", "-m", message])
-
-    # Get the commit hash for the undo stack and confirmation
-    result = git.run(["rev-parse", "--short", "HEAD"])
-    short_hash = result.stdout if result.ok else "?"
-
-    # Push to undo stack
-    full_hash_result = git.run(["rev-parse", "HEAD"])
-    if full_hash_result.ok:
-        from gitdot.undo import push_entry
-
-        push_entry(full_hash_result.stdout, message)
-
-    click.echo(f"Saved: {short_hash} {message}")
+    click.echo(f"Saved: {saved.short_hash} {saved.message}")
 
 
 def _parse_args(args: tuple[str, ...]) -> tuple[list[str], str | None]:
@@ -83,12 +57,3 @@ def _parse_args(args: tuple[str, ...]) -> tuple[list[str], str | None]:
         return args_list, None
 
     return args_list[:-1], args_list[-1]
-
-
-def _auto_message() -> str:
-    """Generate an auto commit message: timestamp + diff summary."""
-    timestamp = datetime.now().strftime("%Y-%m-%d %H:%M")
-    summary = git.diff_stat_summary(staged=True)
-    if summary:
-        return f"{timestamp} -- {summary}"
-    return timestamp
