@@ -22,8 +22,8 @@ def discard(paths: tuple[str, ...]) -> None:
         return
 
     if paths:
-        git.run_or_fail(["checkout", "--"] + list(paths))
         for p in paths:
+            _discard_path(p)
             click.echo(f"Discarded: {p}")
     else:
         count = len(status)
@@ -34,3 +34,21 @@ def discard(paths: tuple[str, ...]) -> None:
         git.run_or_fail(["checkout", "--", "."])
         git.run(["clean", "-fd"])
         click.echo(f"Discarded all changes in {count} {noun}.")
+
+
+def _discard_path(path: str) -> None:
+    result = git.run(["status", "--porcelain", "--", path])
+    if not result.ok:
+        git.run_or_fail(["checkout", "--", path])
+        return
+
+    lines = result.stdout.splitlines()
+    has_tracked = any(not line.startswith("??") for line in lines)
+    has_untracked = any(line.startswith("??") for line in lines)
+
+    if has_tracked:
+        git.run_or_fail(["restore", "--source=HEAD", "--staged", "--worktree", "--", path])
+    if has_untracked:
+        git.run_or_fail(["clean", "-fd", "--", path])
+    if not lines:
+        git.run_or_fail(["checkout", "--", path])

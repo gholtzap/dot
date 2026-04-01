@@ -42,3 +42,24 @@ def test_discard_nothing(runner, tmp_repo_with_commit):
     result = invoke(runner, ["discard"])
     assert result.exit_code == 0
     assert "Nothing to discard" in result.output
+
+
+def test_discard_specific_untracked_file(runner, tmp_repo_with_commit):
+    path = tmp_repo_with_commit / "new.txt"
+    path.write_text("new\n")
+
+    result = invoke(runner, ["discard", "new.txt"])
+    assert result.exit_code == 0
+    assert "Discarded: new.txt" in result.output
+    assert not path.exists()
+
+
+def test_discard_specific_untracked_directory(runner, tmp_repo_with_commit):
+    path = tmp_repo_with_commit / "tmpdir"
+    path.mkdir()
+    (path / "file.txt").write_text("new\n")
+
+    result = invoke(runner, ["discard", "tmpdir"])
+    assert result.exit_code == 0
+    assert "Discarded: tmpdir" in result.output
+    assert not path.exists()
