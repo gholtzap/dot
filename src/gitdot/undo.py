@@ -40,15 +40,17 @@ def push_entry(
 ) -> None:
     """Add an entry to the undo stack."""
     dotdir.ensure()
+    branch = git.current_branch()
     entries = _read_stack()
-    entries.append(
-        {
-            "commit_hash": commit_hash,
-            "message": message,
-            "timestamp": datetime.now(timezone.utc).isoformat(),
-            "type": entry_type,
-        }
-    )
+    entry = {
+        "commit_hash": commit_hash,
+        "message": message,
+        "timestamp": datetime.now(timezone.utc).isoformat(),
+        "type": entry_type,
+    }
+    if branch:
+        entry["branch"] = branch
+    entries.append(entry)
     # Trim to max size
     if len(entries) > MAX_STACK_SIZE:
         entries = entries[-MAX_STACK_SIZE:]
@@ -85,8 +87,13 @@ def undo(count: int) -> None:
 
     # Pop entries from the end (newest first)
     to_undo = entries[-count:]
-    remaining = entries[:-count]
+    current_branch = git.current_branch()
+    for entry in reversed(to_undo):
+        error = _undo_block_reason(entry, current_branch)
+        if error:
+            raise click.ClickException(error)
 
+    remaining = entries[:-count]
     reverted = 0
     for entry in reversed(to_undo):
         result = git.run(
@@ -120,3 +127,20 @@ def undo(count: int) -> None:
 
     noun = "save" if reverted == 1 else "saves"
     click.echo(f"Undone: {reverted} {noun} reverted.")
+
+
+def _undo_block_reason(entry: dict, current_branch: str) -> str | None:
+    entry_branch = entry.get("branch", "")
+    if entry_branch and entry_branch != current_branch:
+        return (
+            f"The last save was made on '{entry_branch}'. "
+            f"Switch back to '{entry_branch}' to undo it."
+        )
+
+    if not git.is_ancestor(entry["commit_hash"]):
+        return (
+            "The last save is not part of the current branch history anymore. "
+            "Switch to the branch where you made it to undo it."
+        )
+
+    return None

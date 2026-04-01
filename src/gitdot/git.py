@@ -167,6 +167,17 @@ def commit_count_behind(*, cwd: str | Path | None = None) -> int:
     return int(result.stdout) if result.ok and result.stdout.isdigit() else 0
 
 
+def is_ancestor(
+    ancestor: str,
+    descendant: str = "HEAD",
+    *,
+    cwd: str | Path | None = None,
+) -> bool:
+    """Return True if ancestor is reachable from descendant."""
+    result = run(["merge-base", "--is-ancestor", ancestor, descendant], cwd=cwd)
+    return result.returncode == 0
+
+
 def conflicted_files(*, cwd: str | Path | None = None) -> list[str]:
     """Return list of files with merge conflicts."""
     result = run(["diff", "--name-only", "--diff-filter=U"], cwd=cwd)

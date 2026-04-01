@@ -69,3 +69,61 @@ def test_undo_stack_max_size(runner, tmp_repo_with_commit):
 
     entries = _read_stack(cwd=tmp_repo_with_commit)
     assert len(entries) == MAX_STACK_SIZE
+
+
+def test_undo_records_branch_for_new_entries(runner, tmp_repo_with_commit):
+    current_branch = subprocess.run(
+        ["git", "branch", "--show-current"],
+        cwd=tmp_repo_with_commit,
+        check=True,
+        capture_output=True,
+        text=True,
+    ).stdout.strip()
+
+    (tmp_repo_with_commit / "file.txt").write_text("hello\n")
+    invoke(runner, ["save", "add file"])
+
+    stack_file = tmp_repo_with_commit / ".dot" / "undo_stack.json"
+    data = json.loads(stack_file.read_text())
+    assert data["entries"][0]["branch"] == current_branch
+
+
+def test_undo_refuses_save_from_another_branch(runner, tmp_repo_with_commit):
+    current_branch = subprocess.run(
+        ["git", "branch", "--show-current"],
+        cwd=tmp_repo_with_commit,
+        check=True,
+        capture_output=True,
+        text=True,
+    ).stdout.strip()
+
+    (tmp_repo_with_commit / "file.txt").write_text("hello\n")
+    invoke(runner, ["save", "add file"])
+
+    subprocess.run(
+        ["git", "switch", "-c", "feature"],
+        cwd=tmp_repo_with_commit,
+        check=True,
+        capture_output=True,
+    )
+
+    result = runner.invoke(
+        __import__("gitdot.cli", fromlist=["main"]).main,
+        ["undo"],
+    )
+    assert result.exit_code != 0
+    assert f"Switch back to '{current_branch}'" in result.output
+
+
+def test_undo_legacy_entry_without_branch_still_works(runner, tmp_repo_with_commit):
+    (tmp_repo_with_commit / "file.txt").write_text("hello\n")
+    invoke(runner, ["save", "add file"])
+
+    stack_file = tmp_repo_with_commit / ".dot" / "undo_stack.json"
+    data = json.loads(stack_file.read_text())
+    data["entries"][0].pop("branch")
+    stack_file.write_text(json.dumps(data, indent=2) + "\n")
+
+    result = invoke(runner, ["undo"])
+    assert result.exit_code == 0
+    assert "1 save reverted" in result.output
