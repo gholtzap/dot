@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import os
 from datetime import datetime
 
 import click
@@ -75,14 +74,12 @@ def _parse_args(args: tuple[str, ...]) -> tuple[list[str], str | None]:
 
     args_list = list(args)
 
-    # If there's only one arg, it's either a path or a message
     if len(args_list) == 1:
-        if os.path.exists(args_list[0]):
+        if git.pathspec_has_changes(args_list[0]):
             return args_list, None
         return [], args_list[0]
 
-    # Multiple args: last one is the message if it's not an existing path
-    if os.path.exists(args_list[-1]):
+    if git.pathspec_has_changes(args_list[-1]):
         return args_list, None
 
     return args_list[:-1], args_list[-1]

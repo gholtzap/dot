@@ -118,6 +118,12 @@ def status_porcelain(*, cwd: str | Path | None = None) -> list[StatusEntry]:
     return entries
 
 
+def pathspec_has_changes(pathspec: str, *, cwd: str | Path | None = None) -> bool:
+    """Return True if the pathspec matches changed files."""
+    result = run(["status", "--porcelain", "--", pathspec], cwd=cwd)
+    return result.ok and bool(result.stdout)
+
+
 def diff_stat_summary(*, staged: bool = True, cwd: str | Path | None = None) -> str:
     """Return a human-readable summary of changes (e.g., 'modified 3 files, added 1 file')."""
     args = ["diff", "--name-status"]

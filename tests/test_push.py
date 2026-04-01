@@ -65,3 +65,43 @@ def test_push_no_upstream_accept(runner, tmp_repo_with_remote):
     )
     assert result.exit_code == 0
     assert "Pushed" in result.output
+
+
+def test_push_deleted_file_path_is_not_treated_as_message(runner, tmp_repo_with_remote):
+    local_path, _ = tmp_repo_with_remote
+
+    tracked = local_path / "old.txt"
+    tracked.write_text("hello\n")
+    subprocess.run(["git", "add", "-A"], cwd=local_path, check=True, capture_output=True)
+    subprocess.run(
+        ["git", "commit", "-m", "add old file"],
+        cwd=local_path,
+        check=True,
+        capture_output=True,
+    )
+    subprocess.run(["git", "push"], cwd=local_path, check=True, capture_output=True)
+
+    tracked.unlink()
+    (local_path / "keep.txt").write_text("keep me local\n")
+
+    result = invoke(runner, ["push", "old.txt"])
+    assert result.exit_code == 0
+    assert "Pushed" in result.output
+
+    status = subprocess.run(
+        ["git", "status", "--porcelain"],
+        cwd=local_path,
+        check=True,
+        capture_output=True,
+        text=True,
+    ).stdout
+    assert "keep.txt" in status
+
+    subject = subprocess.run(
+        ["git", "log", "-1", "--pretty=%s"],
+        cwd=local_path,
+        check=True,
+        capture_output=True,
+        text=True,
+    ).stdout.strip()
+    assert subject != "old.txt"
