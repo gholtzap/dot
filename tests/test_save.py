@@ -1,5 +1,6 @@
 """Tests for dot save."""
 
+import os
 import subprocess
 
 from tests.conftest import invoke
@@ -119,3 +120,34 @@ def test_save_quoted_pathspec_is_not_treated_as_message(runner, tmp_repo_with_co
         text=True,
     ).stdout.strip()
     assert subject != "*.py"
+
+
+def test_save_shows_friendly_message_when_git_identity_is_missing(runner, tmp_path):
+    project = tmp_path / "repo"
+    home = tmp_path / "home"
+    project.mkdir()
+    home.mkdir()
+    subprocess.run(["git", "init", str(project)], check=True, capture_output=True)
+    old_cwd = os.getcwd()
+    os.chdir(project)
+    try:
+        (project / "file.txt").write_text("hello\n")
+        result = runner.invoke(
+            __import__("gitdot.cli", fromlist=["main"]).main,
+            ["save", "first save"],
+            env={
+                "HOME": str(home),
+                "XDG_CONFIG_HOME": str(home),
+                "GIT_CONFIG_NOSYSTEM": "1",
+                "GIT_AUTHOR_NAME": "",
+                "GIT_AUTHOR_EMAIL": "",
+                "GIT_COMMITTER_NAME": "",
+                "GIT_COMMITTER_EMAIL": "",
+            },
+        )
+    finally:
+        os.chdir(old_cwd)
+
+    assert result.exit_code != 0
+    assert "Git does not know who you are yet" in result.output
+    assert "user.name" in result.output

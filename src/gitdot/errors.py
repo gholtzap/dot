@@ -24,6 +24,14 @@ _PATTERNS: list[tuple[re.Pattern[str], str]] = [
         "Git could not authenticate. Check your credentials or SSH key.",
     ),
     (
+        re.compile(
+            r"Please tell me who you are|Author identity unknown|unable to auto-detect email address|empty ident name",
+            re.IGNORECASE,
+        ),
+        "Git does not know who you are yet. Run 'git config user.name \"Your Name\"' "
+        "and 'git config user.email \"you@example.com\"', then try again.",
+    ),
+    (
         re.compile(r"Permission denied \(publickey\)", re.IGNORECASE),
         "SSH key authentication failed. Make sure your SSH key is added to your account.",
     ),

@@ -29,6 +29,19 @@ def test_auth_failed():
     assert "authenticate" in msg
 
 
+def test_missing_git_identity():
+    msg = translate("Author identity unknown\n\n*** Please tell me who you are.")
+    assert msg is not None
+    assert "user.name" in msg
+    assert "user.email" in msg
+
+
+def test_missing_git_identity_empty_ident():
+    msg = translate("fatal: empty ident name (for <>) not allowed")
+    assert msg is not None
+    assert "user.name" in msg
+
+
 def test_permission_denied():
     msg = translate("Permission denied (publickey)")
     assert msg is not None
