@@ -121,3 +121,42 @@ def test_push_with_changes_creates_undo_entry(runner, tmp_repo_with_remote):
 
     data = json.loads(stack_file.read_text())
     assert data["entries"][-1]["message"] == "shipped it"
+
+
+def test_push_pulls_remote_changes_before_pushing(runner, tmp_repo_with_remote, tmp_path):
+    local_path, remote_path = tmp_repo_with_remote
+
+    other = tmp_path / "other"
+    subprocess.run(
+        ["git", "clone", str(remote_path), str(other)],
+        check=True,
+        capture_output=True,
+    )
+    subprocess.run(
+        ["git", "config", "user.email", "other@test.com"],
+        cwd=other,
+        check=True,
+        capture_output=True,
+    )
+    subprocess.run(
+        ["git", "config", "user.name", "Other"],
+        cwd=other,
+        check=True,
+        capture_output=True,
+    )
+    (other / "remote_change.txt").write_text("from other\n")
+    subprocess.run(["git", "add", "-A"], cwd=other, check=True, capture_output=True)
+    subprocess.run(
+        ["git", "commit", "-m", "remote change"],
+        cwd=other,
+        check=True,
+        capture_output=True,
+    )
+    subprocess.run(["git", "push"], cwd=other, check=True, capture_output=True)
+
+    (local_path / "local_change.txt").write_text("from local\n")
+    result = invoke(runner, ["push", "local change"])
+    assert result.exit_code == 0
+    assert "Remote has new changes. Pulling first..." in result.output
+    assert "Pushed" in result.output
+    assert (local_path / "remote_change.txt").exists()
