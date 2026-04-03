@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import click
 
-from gitdot import branch_cleanup, git
+from gitdot import branch_cleanup, git, sync
 from gitdot.errors import translate
 
 
@@ -42,6 +42,7 @@ def switch(
 
 def _switch_to(branch: str) -> None:
     """Switch to an existing branch with detached HEAD prevention."""
+    current_branch = git.current_branch()
     # Check if it's a real branch
     branch_check = git.run(["branch", "--list", branch])
     if branch_check.ok and not branch_check.stdout.strip():
@@ -61,12 +62,19 @@ def _switch_to(branch: str) -> None:
                     f"Then: git reset --hard {branch}"
                 )
 
+    if current_branch and current_branch != branch:
+        saved = sync.save_before_switch()
+        if saved is not None:
+            click.echo("Saving uncommitted changes before switching...")
+            click.echo(f"Saved: {saved.short_hash} {saved.message}")
+
     result = git.run(["switch", branch])
     if not result.ok:
         friendly = translate(result.stderr)
         raise click.ClickException(friendly or result.stderr)
 
     click.echo(f"Switched to '{branch}'.")
+    sync.maybe_sync("switch")
     branch_cleanup.maybe_cleanup("switch")
 
 

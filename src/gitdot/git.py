@@ -119,6 +119,17 @@ def default_branch(*, cwd: str | Path | None = None) -> str:
     return ""
 
 
+def remote_default_branch(*, cwd: str | Path | None = None) -> str:
+    """Return the remote default branch ref (for example, 'origin/main')."""
+    remote_names = remotes(cwd=cwd)
+    ordered = ["origin"] + [name for name in remote_names if name != "origin"]
+    for remote_name in ordered:
+        branch = _remote_head_branch(remote_name, cwd=cwd)
+        if branch:
+            return f"{remote_name}/{branch}"
+    return ""
+
+
 def local_branches(*, cwd: str | Path | None = None) -> list[LocalBranch]:
     """Return local branches with upstream and tip timestamp data."""
     result = run(
@@ -297,9 +308,14 @@ def commit_count_ahead(*, cwd: str | Path | None = None) -> int:
     return int(result.stdout) if result.ok and result.stdout.isdigit() else 0
 
 
-def commit_count_behind(*, cwd: str | Path | None = None) -> int:
-    """Number of upstream commits not yet in local."""
-    result = run(["rev-list", "HEAD..@{u}", "--count"], cwd=cwd)
+def commit_count_behind(
+    ref: str = "@{u}",
+    *,
+    current: str = "HEAD",
+    cwd: str | Path | None = None,
+) -> int:
+    """Number of commits in ref that are not yet in current."""
+    result = run(["rev-list", f"{current}..{ref}", "--count"], cwd=cwd)
     return int(result.stdout) if result.ok and result.stdout.isdigit() else 0
 
 
@@ -320,6 +336,32 @@ def conflicted_files(*, cwd: str | Path | None = None) -> list[str]:
     if not result.ok or not result.stdout:
         return []
     return result.stdout.splitlines()
+
+
+def _remote_head_branch(remote_name: str, *, cwd: str | Path | None = None) -> str:
+    result = run(["ls-remote", "--symref", remote_name, "HEAD"], cwd=cwd)
+    if result.ok and result.stdout:
+        for line in result.stdout.splitlines():
+            if not line.startswith("ref: refs/heads/"):
+                continue
+            ref, _, head = line.partition("\t")
+            if head != "HEAD":
+                continue
+            return ref.removeprefix("ref: refs/heads/")
+
+    result = run(
+        ["symbolic-ref", "--quiet", "--short", f"refs/remotes/{remote_name}/HEAD"],
+        cwd=cwd,
+    )
+    if result.ok and result.stdout:
+        _, _, branch = result.stdout.partition("/")
+        return branch
+
+    for candidate in ("main", "master"):
+        if remote_branch_exists(f"{remote_name}/{candidate}", cwd=cwd):
+            return candidate
+
+    return ""
 
 
 def _selector_timestamp(selector: str) -> int:

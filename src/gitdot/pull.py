@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import click
 
-from gitdot import branch_cleanup, git
+from gitdot import branch_cleanup, git, sync
 from gitdot.errors import translate
 from gitdot.saving import save_changes
 
@@ -49,6 +49,7 @@ def pull() -> None:
         raise click.ClickException(friendly or result.stderr)
 
     click.echo("Pulled.")
+    sync.maybe_sync("pull")
     branch_cleanup.maybe_cleanup("pull")
 
 

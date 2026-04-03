@@ -10,6 +10,7 @@ from gitdot import dotdir
 
 SETTINGS_DIR_NAME = "settings"
 BRANCH_SETTINGS_FILE = "branches.toml"
+SYNC_SETTINGS_FILE = "sync.toml"
 ALLOWED_RUN_ON = {"save", "pull", "switch", "push"}
 
 
@@ -35,6 +36,15 @@ class BranchSettings:
 DEFAULT_BRANCH_SETTINGS = BranchSettings()
 
 
+@dataclass(frozen=True)
+class SyncSettings:
+    enabled: bool = True
+    run_on: tuple[str, ...] = ("switch",)
+
+
+DEFAULT_SYNC_SETTINGS = SyncSettings()
+
+
 def settings_dir(*, cwd: str | Path | None = None) -> Path:
     path = dotdir.ensure(cwd=cwd) / SETTINGS_DIR_NAME
     path.mkdir(exist_ok=True)
@@ -45,13 +55,20 @@ def branch_settings_path(*, cwd: str | Path | None = None) -> Path:
     return settings_dir(cwd=cwd) / BRANCH_SETTINGS_FILE
 
 
+def sync_settings_path(*, cwd: str | Path | None = None) -> Path:
+    return settings_dir(cwd=cwd) / SYNC_SETTINGS_FILE
+
+
 def load_branch_settings(*, cwd: str | Path | None = None) -> BranchSettings:
     path = branch_settings_path(cwd=cwd)
     if not path.exists():
         path.write_text(_serialize(DEFAULT_BRANCH_SETTINGS))
         return DEFAULT_BRANCH_SETTINGS
 
-    raw = _parse(path.read_text())
+    raw = _parse(
+        path.read_text(),
+        allowed_keys={"enabled", "after_weeks", "run_on", "keep_patterns"},
+    )
     return BranchSettings(
         enabled=_validate_bool(raw, "enabled", DEFAULT_BRANCH_SETTINGS.enabled),
         after_weeks=_validate_non_negative_int(
@@ -68,6 +85,19 @@ def load_branch_settings(*, cwd: str | Path | None = None) -> BranchSettings:
     )
 
 
+def load_sync_settings(*, cwd: str | Path | None = None) -> SyncSettings:
+    path = sync_settings_path(cwd=cwd)
+    if not path.exists():
+        path.write_text(_serialize_sync(DEFAULT_SYNC_SETTINGS))
+        return DEFAULT_SYNC_SETTINGS
+
+    raw = _parse(path.read_text(), allowed_keys={"enabled", "run_on"})
+    return SyncSettings(
+        enabled=_validate_bool(raw, "enabled", DEFAULT_SYNC_SETTINGS.enabled),
+        run_on=_validate_string_list(raw, "run_on", DEFAULT_SYNC_SETTINGS.run_on),
+    )
+
+
 def _serialize(settings: BranchSettings) -> str:
     lines = [
         f"enabled = {_toml_bool(settings.enabled)}",
@@ -78,7 +108,15 @@ def _serialize(settings: BranchSettings) -> str:
     return "\n".join(lines) + "\n"
 
 
-def _parse(content: str) -> dict[str, object]:
+def _serialize_sync(settings: SyncSettings) -> str:
+    lines = [
+        f"enabled = {_toml_bool(settings.enabled)}",
+        f"run_on = {_toml_list(settings.run_on)}",
+    ]
+    return "\n".join(lines) + "\n"
+
+
+def _parse(content: str, *, allowed_keys: set[str]) -> dict[str, object]:
     values: dict[str, object] = {}
     for line in content.splitlines():
         stripped = line.strip()
@@ -88,13 +126,8 @@ def _parse(content: str) -> dict[str, object]:
             raise SettingsError("Settings must be written as key = value.")
         key, raw_value = stripped.split("=", 1)
         key = key.strip()
-        if key not in {
-            "enabled",
-            "after_weeks",
-            "run_on",
-            "keep_patterns",
-        }:
-            raise SettingsError(f"Unknown branch setting '{key}'.")
+        if key not in allowed_keys:
+            raise SettingsError(f"Unknown setting '{key}'.")
         values[key] = _parse_value(raw_value.strip(), key)
     return values
 

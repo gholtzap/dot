@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import click
 
-from gitdot import branch_cleanup, dotdir, git
+from gitdot import branch_cleanup, dotdir, git, sync
 from gitdot.saving import save_changes
 
 
@@ -37,6 +37,7 @@ def save(args: tuple[str, ...]) -> None:
         return
 
     click.echo(f"Saved: {saved.short_hash} {saved.message}")
+    sync.maybe_sync("save")
     branch_cleanup.maybe_cleanup("save")
 
 

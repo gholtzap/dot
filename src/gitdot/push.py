@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import click
 
-from gitdot import branch_cleanup, dotdir, git
+from gitdot import branch_cleanup, dotdir, git, sync
 from gitdot.errors import translate
 from gitdot.saving import save_changes
 
@@ -34,6 +34,9 @@ def push(args: tuple[str, ...]) -> None:
         saved = save_changes(paths=paths or None, message=message)
         if saved is not None:
             click.echo(f"Saved: {saved.short_hash} {saved.message}")
+
+    if not sync.maybe_sync("push"):
+        return
 
     if not git.has_upstream():
         remote = _guess_remote()
