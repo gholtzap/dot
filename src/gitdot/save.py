@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import click
 
-from gitdot import git, dotdir
+from gitdot import branch_cleanup, dotdir, git
 from gitdot.saving import save_changes
 
 
@@ -27,14 +27,17 @@ def save(args: tuple[str, ...]) -> None:
     status = git.status_porcelain()
     if not status and not paths:
         click.echo("There are no changes to save.")
+        branch_cleanup.maybe_cleanup("save")
         return
 
     saved = save_changes(paths=paths or None, message=message)
     if saved is None:
         click.echo("There are no changes to save.")
+        branch_cleanup.maybe_cleanup("save")
         return
 
     click.echo(f"Saved: {saved.short_hash} {saved.message}")
+    branch_cleanup.maybe_cleanup("save")
 
 
 def _parse_args(args: tuple[str, ...]) -> tuple[list[str], str | None]:

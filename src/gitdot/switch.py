@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import click
 
-from gitdot import git
+from gitdot import branch_cleanup, git
 from gitdot.errors import translate
 
 
@@ -67,6 +67,7 @@ def _switch_to(branch: str) -> None:
         raise click.ClickException(friendly or result.stderr)
 
     click.echo(f"Switched to '{branch}'.")
+    branch_cleanup.maybe_cleanup("switch")
 
 
 def _create_branch(name: str) -> None:
@@ -77,6 +78,7 @@ def _create_branch(name: str) -> None:
         raise click.ClickException(friendly or result.stderr)
 
     click.echo(f"Created and switched to '{name}'.")
+    branch_cleanup.maybe_cleanup("switch")
 
 
 def _list_branches() -> None:

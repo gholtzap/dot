@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import click
 
-from gitdot import git, dotdir
+from gitdot import branch_cleanup, dotdir, git
 from gitdot.errors import translate
 from gitdot.saving import save_changes
 
@@ -47,6 +47,7 @@ def push(args: tuple[str, ...]) -> None:
                 friendly = translate(result.stderr)
                 raise click.ClickException(friendly or result.stderr)
             click.echo(f"Pushed to {suggested}.")
+            branch_cleanup.maybe_cleanup("push")
         else:
             click.echo("Push cancelled.")
         return
@@ -66,6 +67,7 @@ def push(args: tuple[str, ...]) -> None:
             friendly = translate(result.stderr)
             raise click.ClickException(friendly or result.stderr)
     click.echo("Pushed.")
+    branch_cleanup.maybe_cleanup("push")
 
 
 def _parse_args(args: tuple[str, ...]) -> tuple[list[str], str | None]:

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import re
 import subprocess
 from dataclasses import dataclass
 from pathlib import Path
@@ -24,6 +25,13 @@ class GitResult:
 class StatusEntry(NamedTuple):
     code: str  # two-character status code (e.g., "M ", "??", "A ")
     path: str
+
+
+@dataclass
+class LocalBranch:
+    name: str
+    upstream: str
+    tip_timestamp: int
 
 
 def run(
@@ -74,6 +82,128 @@ def current_branch(*, cwd: str | Path | None = None) -> str:
     """Return the current branch name, or empty string if detached."""
     result = run(["branch", "--show-current"], cwd=cwd)
     return result.stdout
+
+
+def local_branch_exists(name: str, *, cwd: str | Path | None = None) -> bool:
+    """Return True if the local branch exists."""
+    result = run(["show-ref", "--verify", "--quiet", f"refs/heads/{name}"], cwd=cwd)
+    return result.ok
+
+
+def remotes(*, cwd: str | Path | None = None) -> list[str]:
+    """Return configured git remotes."""
+    result = run(["remote"], cwd=cwd)
+    if not result.ok or not result.stdout:
+        return []
+    return result.stdout.splitlines()
+
+
+def default_branch(*, cwd: str | Path | None = None) -> str:
+    """Return the repo default branch name when git can determine it."""
+    remote_names = remotes(cwd=cwd)
+    ordered = ["origin"] + [name for name in remote_names if name != "origin"]
+    for remote_name in ordered:
+        result = run(
+            ["symbolic-ref", "--quiet", "--short", f"refs/remotes/{remote_name}/HEAD"],
+            cwd=cwd,
+        )
+        if result.ok and result.stdout:
+            _, _, branch = result.stdout.partition("/")
+            if branch:
+                return branch
+
+    for candidate in ("main", "master"):
+        if local_branch_exists(candidate, cwd=cwd):
+            return candidate
+
+    return ""
+
+
+def local_branches(*, cwd: str | Path | None = None) -> list[LocalBranch]:
+    """Return local branches with upstream and tip timestamp data."""
+    result = run(
+        [
+            "for-each-ref",
+            "--format=%(refname:short)\t%(upstream:short)\t%(committerdate:unix)",
+            "refs/heads",
+        ],
+        cwd=cwd,
+    )
+    if not result.ok or not result.stdout:
+        return []
+
+    branches = []
+    for line in result.stdout.splitlines():
+        parts = line.split("\t")
+        if len(parts) != 3:
+            continue
+        name, upstream, tip_timestamp = parts
+        branches.append(
+            LocalBranch(
+                name=name,
+                upstream=upstream,
+                tip_timestamp=int(tip_timestamp) if tip_timestamp.isdigit() else 0,
+            )
+        )
+    return branches
+
+
+def remote_branch_exists(remote_ref: str, *, cwd: str | Path | None = None) -> bool:
+    """Return True if the remote-tracking branch exists locally."""
+    result = run(
+        ["show-ref", "--verify", "--quiet", f"refs/remotes/{remote_ref}"],
+        cwd=cwd,
+    )
+    return result.ok
+
+
+def matching_remote_branches(name: str, *, cwd: str | Path | None = None) -> list[str]:
+    """Return remote-tracking branches whose branch name matches the given name."""
+    result = run(["for-each-ref", "--format=%(refname:short)", "refs/remotes"], cwd=cwd)
+    if not result.ok or not result.stdout:
+        return []
+    matches = []
+    suffix = f"/{name}"
+    for ref in result.stdout.splitlines():
+        if ref.endswith("/HEAD"):
+            continue
+        if ref.endswith(suffix):
+            matches.append(ref)
+    return matches
+
+
+def latest_ref_activity(ref: str, *, cwd: str | Path | None = None) -> int:
+    """Return the latest reflog timestamp for a ref, or 0 if unavailable."""
+    result = run(
+        ["reflog", "show", "--date=unix", "--format=%gd", "-n", "1", ref],
+        cwd=cwd,
+    )
+    if not result.ok or not result.stdout:
+        return 0
+    return _selector_timestamp(result.stdout.splitlines()[0])
+
+
+def latest_checkout_activity(branch: str, *, cwd: str | Path | None = None) -> int:
+    """Return the latest time HEAD was moved to the given branch."""
+    result = run(
+        ["reflog", "show", "--date=unix", "--format=%gd%x09%gs", "HEAD"],
+        cwd=cwd,
+    )
+    if not result.ok or not result.stdout:
+        return 0
+
+    pattern = re.compile(rf"^checkout: moving from .+ to {re.escape(branch)}$")
+    for line in result.stdout.splitlines():
+        selector, _, subject = line.partition("\t")
+        if pattern.match(subject):
+            return _selector_timestamp(selector)
+    return 0
+
+
+def ref_tip_timestamp(ref: str, *, cwd: str | Path | None = None) -> int:
+    """Return the tip commit timestamp for a ref, or 0 if unavailable."""
+    result = run(["log", "-1", "--format=%ct", ref], cwd=cwd)
+    return int(result.stdout) if result.ok and result.stdout.isdigit() else 0
 
 
 def has_upstream(*, cwd: str | Path | None = None) -> bool:
@@ -190,3 +320,8 @@ def conflicted_files(*, cwd: str | Path | None = None) -> list[str]:
     if not result.ok or not result.stdout:
         return []
     return result.stdout.splitlines()
+
+
+def _selector_timestamp(selector: str) -> int:
+    match = re.search(r"\{(\d+)\}$", selector.strip())
+    return int(match.group(1)) if match else 0
